@@ -84,7 +84,7 @@ def transcribe_and_send():
     print(f"Time taken: {end_time - start_time:.2f} seconds")
 
     # Send transcription to the AI model
-    send_transcription(text, "email")  # Default to email instructions
+    send_transcription(text)  # Default to email instructions
 
 def command_button_clicked():
     start_time = time.time()
@@ -99,12 +99,14 @@ def command_button_clicked():
     print(f"Time taken: {end_time - start_time:.2f} seconds")
 
     # Send transcription to the AI model with command instructions
-    send_transcription(text, "command")
+    send_transcription(text)
 
 def ctrl_alt_a_callback():
     toggle_recording()
 
 button = tk.Button(root, text="Record", font=("Arial", 14), command=toggle_recording)
+button.pack(padx=20, pady=20)
+
 command_button = tk.Button(root, text="Command", font=("Arial", 14), command=command_button_clicked)
 command_button.pack(padx=20, pady=20)
 
