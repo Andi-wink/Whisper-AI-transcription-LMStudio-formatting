@@ -31,6 +31,19 @@ def send_transcription(transcription):
             print(chunk.choices[0].delta.content, end="", flush=True)
             ai_response += chunk.choices[0].delta.content
 
+        # Define unwanted starting phrases
+    unwanted_starts = [
+        "Here is the converted text:",
+        "Here's the refined text:",
+        "Here is the refined text",
+        "Here is the refined email text:"
+    ]
+
+    # Check and remove any unwanted starting phrase
+    for phrase in unwanted_starts:
+        if ai_response.startswith(phrase):
+            ai_response = ai_response[len(phrase):].strip()
+
     # Here, instead of appending to history and asking for new user input,
     # we return the AI's response. The loop is not needed anymore.
     print(f"AI Response: {ai_response}")
@@ -44,3 +57,4 @@ def send_transcription(transcription):
 transcription = "This is where your transcription text will go."
 ai_response = send_transcription(transcription)
 print("\nAI Response:", ai_response)
+
