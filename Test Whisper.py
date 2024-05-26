@@ -6,7 +6,6 @@ import torch
 import time
 import pyperclip  # Make sure to install this with pip install pyperclip
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-# Ensure the chat_interaction.py is accessible or the send_transcription function is defined/imported here
 from Local_AI_server import send_transcription
 import keyboard
 
@@ -83,8 +82,11 @@ def transcribe_and_send():
     end_time = time.time()
     print(f"Time taken: {end_time - start_time:.2f} seconds")
 
-    # Send transcription to the AI model
-    send_transcription(text)  # Default to email instructions
+    # Send transcription to the AI model and get response
+    ai_response = send_transcription(text)  # Default to email instructions
+    formatted_response = format_response(ai_response)
+    pyperclip.copy(formatted_response)
+    print(f"Formatted Response: {formatted_response}")
 
 def command_button_clicked():
     start_time = time.time()
@@ -98,8 +100,11 @@ def command_button_clicked():
     end_time = time.time()
     print(f"Time taken: {end_time - start_time:.2f} seconds")
 
-    # Send transcription to the AI model with command instructions
-    send_transcription(text)
+    # Send transcription to the AI model and get response
+    ai_response = send_transcription(text)
+    formatted_response = format_response(ai_response)
+    pyperclip.copy(formatted_response)
+    print(f"Formatted Response: {formatted_response}")
 
 def format_response(response):
     # Define unwanted starting phrases
@@ -107,21 +112,17 @@ def format_response(response):
         "Here is the converted text:",
         "Here's the refined text:",
         "Here is the refined text",
-        "Here is the refined email text:"
+        "Here is the refined email text:",
+        ":"
     ]
 
     # Check and remove any unwanted starting phrase and anything before it
     for phrase in unwanted_starts:
         if phrase in response:
             response = response.split(phrase, 1)[1].strip()
+            break
 
-    # Clean up any duplicate words at the end
-    response = response.rstrip(' you you').rstrip(' at the the')
-
-    # Ensure proper formatting with line breaks
-    lines = response.split('. ')
-    formatted_response = ".\n".join(line.strip() for line in lines if line.strip())
-    formatted_response = formatted_response.replace('Kind regards', '\n\nKind regards').replace('Regards', '\n\nRegards')
+    return response
 
 def ctrl_alt_a_callback():
     toggle_recording()
