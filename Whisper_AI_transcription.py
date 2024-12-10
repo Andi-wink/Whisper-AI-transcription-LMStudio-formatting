@@ -5,8 +5,8 @@ import tempfile
 import torch
 import time
 import pyperclip
-import re  # Import the re module for regular expressions
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+import re
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline, GenerationConfig
 import keyboard
 from Local_AI_server import send_transcription  # Import the server-side function
 
@@ -17,9 +17,12 @@ torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 # Load the model
 model_id = "openai/whisper-large-v3"
 model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+    model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True
 )
 model.to(device)
+
+# Initialize the generation config
+model.generation_config = GenerationConfig.from_pretrained(model_id)
 
 # Load the processor
 processor = AutoProcessor.from_pretrained(model_id)
@@ -87,6 +90,8 @@ def handle_transcription():
             transcribe_and_send("spaceholder")
         elif last_button_clicked == "record":
             transcribe_and_send("record")
+        elif last_button_clicked == "transcribe_paste":
+            transcribe_and_paste()
         is_transcribing = False
 
 def toggle_recording(button_type):
@@ -114,6 +119,8 @@ def update_button_text(button_type):
         command_button.config(text="Stop Command Recording" if is_recording else "Command")
     elif button_type == "spaceholder":
         spaceholder_button.config(text="Stop Spaceholder Recording" if is_recording else "Spaceholder")
+    elif button_type == "transcribe_paste":
+        pass  # No button to update
 
 def remove_you_thank_you(text):
     """Remove any trailing 'you' or 'thank you' from the end of the text."""
@@ -180,6 +187,37 @@ def transcribe_and_send(button_type):
     end_time = time.time()
     print(f"Time taken: {end_time - start_time:.2f} seconds")
 
+def transcribe_and_paste():
+    """Transcribe the audio file, process the text, copy to clipboard, and simulate paste."""
+    global filename
+
+    if filename is None:
+        print("No recording found. Please record something first.")
+        return
+
+    start_time = time.time()
+
+    try:
+        # Transcribe the audio file
+        result = pipe(filename)
+        text = result["text"]
+
+        # Process the text to remove trailing 'you' or 'thank you'
+        text = remove_you_thank_you(text)
+
+        # Copy the processed transcription text to the clipboard
+        pyperclip.copy(text)
+        print(f"Transcription: {text}")
+
+        # Simulate a 'ctrl+v' keypress to paste the text
+        keyboard.press_and_release('ctrl+v')
+
+    except Exception as e:
+        print(f"An error occurred during transcription: {e}")
+
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time:.2f} seconds")
+
 def command_button_clicked():
     """Handle the command button click event."""
     toggle_recording("command")
@@ -214,6 +252,11 @@ def ctrl_alt_a_callback():
     print("Global hotkey Ctrl + Alt + A triggered")
     toggle_recording("record")
 
+def ctrl_alt_x_callback():
+    """Handle Ctrl + Alt + X hotkey event."""
+    print("Global hotkey Ctrl + Alt + X triggered")
+    toggle_recording("transcribe_paste")
+
 button = tk.Button(root, text="Record", font=("Arial", 14), command=lambda: toggle_recording("record"))
 button.pack(padx=20, pady=20)
 
@@ -226,5 +269,6 @@ spaceholder_button.pack(padx=20, pady=20)
 # Bind the global hotkeys
 keyboard.add_hotkey('ctrl+alt+a', ctrl_alt_a_callback)
 keyboard.add_hotkey('ctrl+alt+y', command_button_clicked_hotkey)
+keyboard.add_hotkey('ctrl+alt+x', ctrl_alt_x_callback)
 
 root.mainloop()
