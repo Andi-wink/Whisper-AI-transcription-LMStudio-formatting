@@ -13,6 +13,7 @@ from tkinter import filedialog
 import threading
 import traceback
 from pydub import AudioSegment
+import numpy as np
 
 # Set device to GPU if available
 print("\n=== CUDA Diagnostic Information ===")
@@ -146,6 +147,34 @@ def stop_recording():
     if not is_recording:
         return
     sd.stop()
+    
+    # ENHANCEMENT: Audio volume normalization and amplification to improve transcription accuracy
+    # This addresses the issue of recordings being too quiet for effective transcription
+    if recording is not None and len(recording) > 0:
+        # Convert to float32 if not already
+        if recording.dtype != np.float32:
+            recording = recording.astype(np.float32)
+            
+        # Calculate the maximum absolute amplitude
+        max_amplitude = np.max(np.abs(recording))
+        if max_amplitude > 0:
+            # Check if audio is too quiet (adjust threshold as needed)
+            if max_amplitude < 0.2:  # Increased threshold to catch more recordings
+                print(f"Audio volume is low (max amplitude: {max_amplitude:.4f}), applying amplification")
+                
+                # Apply stronger normalization for better volume
+                gain_factor = 1.8 / max_amplitude  # Doubled from 0.9 to 1.8 (can go to max 2.0 safely)
+                recording = recording * gain_factor
+                
+                print(f"Applied gain factor of {gain_factor:.2f}x")
+            else:
+                # Even if volume is adequate, still boost it a bit
+                gain_factor = 2.0  # Fixed gain for all recordings
+                recording = np.clip(recording * gain_factor, -1.0, 1.0)  # Clip to prevent distortion
+                print(f"Applied standard boost of {gain_factor:.2f}x to all audio")
+        else:
+            print("Warning: Recording appears to be silent (max amplitude: 0)")
+    
     sf.write(filename, recording, sample_rate)
     is_recording = False
     print(f"Recording saved to {filename}")
@@ -265,13 +294,48 @@ def transcribe_and_send(button_type):
         if filename.lower().endswith('.aac'):
             print(f"Converting {filename} to WAV format...")
             audio = AudioSegment.from_file(filename, format='aac')
+            
+            # ENHANCEMENT: Increase volume for AAC files to improve transcription
+            # AAC files often have lower volume when converted
+            audio = audio + 20  # This increases volume by 20dB
+            print("Applied +20dB amplification to audio")
+            
             wav_filename = tempfile.mktemp(suffix='.wav')
             audio.export(wav_filename, format='wav')
             print(f"Conversion complete. WAV file saved at {wav_filename}")
             result = pipe(wav_filename)
         else:
-            print("Starting transcription...")
-            result = pipe(filename)
+            # ENHANCEMENT: Volume improvement for WAV files
+            # For WAV files, check if volume enhancement is needed
+            audio_data, sr = sf.read(filename)
+            max_amplitude = np.max(np.abs(audio_data))
+            
+            # Always enhance the audio volume for better transcription
+            print(f"Enhancing audio volume for better transcription (original max amplitude: {max_amplitude:.4f})")
+            
+            # Create a temporary file for the enhanced audio
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tf:
+                enhanced_filename = tf.name
+            
+            # Apply different gain strategies based on the original volume
+            if max_amplitude < 0.1 and max_amplitude > 0:
+                # Very quiet audio needs strong amplification
+                gain_factor = 1.8 / max_amplitude  # Increased from 0.9
+                enhanced_audio = np.clip(audio_data * gain_factor, -1.0, 1.0)  # Clip to prevent distortion
+                print(f"Applied high gain factor of {gain_factor:.2f}x to very quiet audio")
+            else:
+                # Standard audio gets a fixed boost
+                gain_factor = 2.0  # Double the volume
+                enhanced_audio = np.clip(audio_data * gain_factor, -1.0, 1.0)
+                print(f"Applied standard gain factor of {gain_factor:.2f}x")
+            
+            sf.write(enhanced_filename, enhanced_audio, sr)
+            print(f"Enhanced audio saved to {enhanced_filename}")
+            
+            # Use the enhanced file for transcription
+            print("Starting transcription with enhanced audio...")
+            result = pipe(enhanced_filename)
+            
             print("Transcription completed")
 
         text = result["text"]
@@ -425,14 +489,5 @@ def start_hotkey_thread():
 
 # Replace the direct hotkey registration with the threaded version
 hotkey_thread = start_hotkey_thread()
-
-# Add buttons to manually trigger the functions for testing
-test_button_x = tk.Button(root, text="Test Ctrl+Alt+X", font=("Arial", 14), 
-                         command=ctrl_alt_x_callback)
-test_button_x.pack(padx=20, pady=10)
-
-test_button_y = tk.Button(root, text="Test Ctrl+Alt+Y", font=("Arial", 14), 
-                         command=lambda: toggle_recording("email"))
-test_button_y.pack(padx=20, pady=10)
 
 root.mainloop()
