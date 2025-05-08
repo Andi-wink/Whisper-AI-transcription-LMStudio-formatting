@@ -434,13 +434,18 @@ def transcribe_and_send_email():
         result = pipe(filename)
         text = result["text"]
         text = remove_you_thank_you(text)
-        pyperclip.copy(text)
-        print(f"Transcription: {text}")
+        
+        # Add the requested prefix to the email text
+        formatted_email = "Form this message as a email. Correct obvious typos and fill in obvious blanks. Keep the same wording as much as possible. Here is the message: " + text
+        
+        pyperclip.copy(formatted_email)
+        print(f"Original transcription: {text}")
+        print(f"Formatted as email with instructions")
         
         # Simulate Alt+H and Enter
         keyboard.press_and_release('alt+h')
         time.sleep(0.5)  # Small delay to ensure the shortcut is registered
-        keyboard.write(text)
+        keyboard.write(formatted_email)
         keyboard.press_and_release('enter')
         
     except Exception as e:
