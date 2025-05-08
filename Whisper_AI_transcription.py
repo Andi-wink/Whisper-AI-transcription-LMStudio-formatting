@@ -111,13 +111,18 @@ pipe = pipeline(
 )
 print("Pipeline initialized")
 
+# Create main window with minimalist design
 root = tk.Tk()
-root.geometry("600x700")
+root.geometry("300x80")  # Much smaller window
 root.title("Speech Recorder")
-root.configure(background="#4a4a4a")
+root.configure(background="#1a2b47")  # Dark blue background
+root.attributes('-topmost', True)  # Always on top
 
-label = tk.Label(root, text="Speech Recorder", font=("Arial", 18))
-label.pack(padx=20, pady=20)
+# Optional: Remove window decorations for even more minimalist look
+# root.overrideredirect(True)  # Uncomment to remove title bar
+
+# Create PIL for custom circular buttons
+from PIL import Image, ImageTk, ImageDraw
 
 # Initialize states
 is_recording = False
@@ -452,20 +457,87 @@ def transcribe_and_send_email():
         print(f"An error occurred during transcription: {e}")
         traceback.print_exc()
 
-button = tk.Button(root, text="Record", font=("Arial", 14), command=lambda: toggle_recording("record"))
-button.pack(padx=20, pady=20)
+# Function to create circular icon buttons
+def create_circular_icon(color, size=40, icon_text=""):
+    # Create a circular image
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    
+    # Draw circle
+    draw.ellipse((0, 0, size-1, size-1), fill=color)
+    
+    # Add text if provided
+    if icon_text:
+        # For simplicity, we're using text instead of proper icons
+        # In a production app, you'd load actual icon images
+        draw.text((size//2, size//2), icon_text, fill="white", anchor="mm")
+        
+    return ImageTk.PhotoImage(image)
 
-command_button = tk.Button(root, text="Command", font=("Arial", 14), command=command_button_clicked)
-command_button.pack(padx=20, pady=20)
+# Create frame for icons
+icon_frame = tk.Frame(root, bg="#1a2b47")
+icon_frame.pack(fill=tk.BOTH, expand=True)
 
-notes_button = tk.Button(root, text="Notes", font=("Arial", 14), command=notes_button_clicked)
-notes_button.pack(padx=20, pady=20)
+# Icon data with colors, symbols, and functions
+icons_data = [
+    {"color": "#000000", "text": "🎤", "tooltip": "Ctrl+Alt+X", "command": ctrl_alt_x_callback},
+    {"color": "#4285F4", "text": "🔊", "tooltip": "Ctrl+Alt+Y", "command": lambda: toggle_recording("email")},
+    {"color": "#EA4335", "text": "⏺", "tooltip": "Record", "command": lambda: toggle_recording("record")},
+    {"color": "#34A853", "text": "💬", "tooltip": "Command", "command": command_button_clicked},
+    {"color": "#FBBC05", "text": "📂", "tooltip": "Select File", "command": select_audio_file}
+]
 
-select_button = tk.Button(root, text="Select Audio File", font=("Arial", 14), command=select_audio_file)
-select_button.pack(padx=20, pady=20)
+# Store button references
+buttons = []
+button_images = []
 
-email_button = tk.Button(root, text="Email", font=("Arial", 14), command=email_button_clicked)
-email_button.pack(padx=20, pady=20)
+# Create the buttons
+for i, icon_data in enumerate(icons_data):
+    # Create button frame for better spacing
+    btn_frame = tk.Frame(icon_frame, bg="#1a2b47", padx=5)
+    btn_frame.pack(side=tk.LEFT)
+    
+    # Create the icon image
+    icon_img = create_circular_icon(icon_data["color"], 40, icon_data["text"])
+    button_images.append(icon_img)  # Keep reference to prevent garbage collection
+    
+    # Create the button
+    btn = tk.Button(
+        btn_frame, 
+        image=icon_img, 
+        bg="#1a2b47", 
+        activebackground="#1a2b47",
+        relief=tk.FLAT,
+        bd=0,
+        highlightthickness=0,
+        command=icon_data["command"]
+    )
+    btn.image = icon_img  # Keep a reference
+    btn.pack(pady=2)
+    
+    # Add tooltip if specified
+    if "tooltip" in icon_data:
+        tooltip = tk.Label(
+            btn_frame, 
+            text=icon_data["tooltip"],
+            bg="#1a2b47",
+            fg="white",
+            font=("Arial", 7)
+        )
+        tooltip.pack()
+    
+    # Add hover effect
+    btn.bind("<Enter>", lambda e, b=btn: b.configure(bg="#2a3b57"))
+    btn.bind("<Leave>", lambda e, b=btn: b.configure(bg="#1a2b47"))
+    
+    buttons.append(btn)
+
+# Map the buttons to variables for function access
+button = buttons[2]  # Record button
+command_button = buttons[3]  # Command button
+notes_button = None  # Notes functionality is now in buttons[0] (ctrl+alt+x)
+select_button = buttons[4]  # Select Audio File button
+email_button = buttons[1]  # Email button
 
 # Add this function to check if hotkeys are working
 def register_hotkeys():
