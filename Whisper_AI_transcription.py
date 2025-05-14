@@ -14,6 +14,17 @@ import threading
 import traceback
 from pydub import AudioSegment
 import numpy as np
+import io
+from PIL import Image, ImageTk, ImageDraw
+
+# Import win32 modules with proper error handling
+try:
+    import win32clipboard
+    from win32con import CF_DIB, CF_UNICODETEXT, CF_BITMAP
+    win32_available = True
+except ImportError:
+    print("Warning: win32clipboard module not available. Image clipboard functionality will be limited.")
+    win32_available = False
 
 # Set device to GPU if available
 print("\n=== CUDA Diagnostic Information ===")
@@ -122,7 +133,6 @@ root.attributes('-topmost', True)  # Always on top
 # root.overrideredirect(True)  # Uncomment to remove title bar
 
 # Create PIL for custom circular buttons
-from PIL import Image, ImageTk, ImageDraw
 
 # Initialize states
 is_recording = False
@@ -133,6 +143,9 @@ duration = 90  # seconds (adjust as needed)
 sample_rate = 44100
 last_button_clicked = None
 clipboard_content = None
+previous_clipboard = None  # Store the previous clipboard content before transcription
+clipboard_format = None  # Store the format of the clipboard content (text or image)
+last_clipboard_check = time.time()  # Track when we last checked the clipboard
 
 def start_recording():
     """Start recording."""
@@ -200,6 +213,8 @@ def handle_transcription():
             transcribe_and_send("record")
         elif last_button_clicked == "transcribe_paste":
             transcribe_and_paste()
+        elif last_button_clicked == "transcribe_paste_with_previous":
+            transcribe_and_paste_with_previous()
         elif last_button_clicked == "select_file":
             transcribe_and_send("select_file")
         elif last_button_clicked == "email":
@@ -375,15 +390,225 @@ def transcribe_and_paste():
     start_time = time.time()
 
     try:
+        # Save current clipboard content before we change it
+        save_clipboard_content()
+        
         result = pipe(filename)
         text = result["text"]
         text = remove_you_thank_you(text)
-        pyperclip.copy(text)
+        set_clipboard_text(text)
         print(f"Transcription: {text}")
         # Simulate Ctrl+V to paste the transcribed text
         keyboard.press_and_release('ctrl+v')
     except Exception as e:
         print(f"An error occurred during transcription: {e}")
+        traceback.print_exc()
+
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time:.2f} seconds")
+
+# Function to get clipboard content (text or image)
+def get_clipboard_content():
+    """Get current clipboard content and format."""
+    global win32_available
+    
+    if not win32_available:
+        # Fallback to pyperclip for text only
+        try:
+            text = pyperclip.paste()
+            if text:
+                return text, "text"
+            return None, None
+        except Exception as e:
+            print(f"Error getting clipboard text: {e}")
+            return None, None
+    
+    try:
+        win32clipboard.OpenClipboard()
+        
+        # Try to get image from clipboard
+        if win32clipboard.IsClipboardFormatAvailable(CF_DIB):
+            try:
+                data = win32clipboard.GetClipboardData(CF_DIB)
+                win32clipboard.CloseClipboard()
+                return data, "image"
+            except Exception as e:
+                print(f"Error getting image from clipboard: {e}")
+                win32clipboard.CloseClipboard()
+        
+        # Try to get text from clipboard
+        elif win32clipboard.IsClipboardFormatAvailable(CF_UNICODETEXT):
+            try:
+                text = win32clipboard.GetClipboardData(CF_UNICODETEXT)
+                win32clipboard.CloseClipboard()
+                return text, "text"
+            except Exception as e:
+                print(f"Error getting text from clipboard: {e}")
+                win32clipboard.CloseClipboard()
+        else:
+            win32clipboard.CloseClipboard()
+            
+        return None, None
+    except Exception as e:
+        print(f"Error accessing clipboard: {e}")
+        try:
+            win32clipboard.CloseClipboard()
+        except:
+            pass
+        return None, None
+
+# Function to set clipboard content
+def set_clipboard_text(text):
+    """Set clipboard content to text."""
+    try:
+        pyperclip.copy(text)
+        return True
+    except Exception as e:
+        print(f"Error setting clipboard text: {e}")
+        return False
+
+# Function to set image to clipboard
+def set_clipboard_image(image_data):
+    """Set clipboard content to image."""
+    global win32_available
+    
+    if not win32_available:
+        print("Cannot set image to clipboard: win32clipboard not available")
+        return False
+    
+    try:
+        win32clipboard.OpenClipboard()
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardData(CF_DIB, image_data)
+        win32clipboard.CloseClipboard()
+        print("Image set to clipboard successfully")
+        return True
+    except Exception as e:
+        print(f"Error setting clipboard image: {e}")
+        traceback.print_exc()
+        try:
+            win32clipboard.CloseClipboard()
+        except:
+            pass
+        return False
+
+# Function to save current clipboard content before transcription
+def save_clipboard_content():
+    """Save current clipboard content before changing it."""
+    global previous_clipboard, clipboard_format
+    
+    content, format_type = get_clipboard_content()
+    if content:
+        previous_clipboard = content
+        clipboard_format = format_type
+        if format_type == "text":
+            print(f"Saved previous clipboard text: {content[:30]}{'...' if len(content) > 30 else ''}")
+        else:
+            print("Saved previous clipboard image")
+        return True
+    return False
+
+def transcribe_and_paste_with_previous():
+    """Transcribe the audio, then paste with two enters and previously copied item."""
+    global filename, previous_clipboard, clipboard_format
+    if filename is None:
+        print("No recording found. Please record something first.")
+        return
+
+    start_time = time.time()
+
+    try:
+        # Always get the current clipboard content when the function is called
+        # This ensures we always use the most recently copied item
+        save_clipboard_content()
+        
+        if clipboard_format == "text" and previous_clipboard:
+            # Handle text content
+            print(f"Using previous clipboard text: {previous_clipboard[:30]}{'...' if len(previous_clipboard) > 30 else ''}")
+            
+            # Transcribe the audio
+            result = pipe(filename)
+            text = result["text"]
+            text = remove_you_thank_you(text)
+            
+            # First paste the transcription
+            print("Setting transcription to clipboard...")
+            set_clipboard_text(text)
+            print(f"Transcription: {text}")
+            print("Pasting transcription...")
+            keyboard.press_and_release('ctrl+v')
+            time.sleep(0.3)
+            
+            # Press Shift+Enter twice for two line breaks
+            print("Adding two line breaks...")
+            keyboard.press_and_release('shift+enter')
+            time.sleep(0.2)
+            keyboard.press_and_release('shift+enter')
+            time.sleep(0.2)
+            
+            # Now paste the previous text
+            print("Setting previous text to clipboard...")
+            set_clipboard_text(previous_clipboard)
+            print(f"Previous clipboard (text): {previous_clipboard[:50]}{'...' if len(previous_clipboard) > 50 else ''}")
+            print("Pasting previous text...")
+            keyboard.press_and_release('ctrl+v')
+            
+            # Press Enter to complete the message
+            time.sleep(0.3)
+            keyboard.press_and_release('enter')
+            
+        elif clipboard_format == "image" and previous_clipboard and win32_available:
+            # Handle image content
+            print("Using previous clipboard image")
+            
+            # Transcribe the audio first
+            result = pipe(filename)
+            text = result["text"]
+            text = remove_you_thank_you(text)
+            print(f"Transcription: {text}")
+            print("Previous clipboard: [IMAGE]")
+            
+            # First paste the transcription
+            print("Setting text to clipboard...")
+            set_clipboard_text(text)
+            print("Pasting transcription...")
+            keyboard.press_and_release('ctrl+v')
+            time.sleep(0.3)
+            
+            # Press Shift+Enter twice for two line breaks
+            print("Adding two line breaks...")
+            keyboard.press_and_release('shift+enter')
+            time.sleep(0.2)
+            keyboard.press_and_release('shift+enter')
+            time.sleep(0.2)
+            
+            # Now paste the image
+            print("Setting image to clipboard...")
+            success = set_clipboard_image(previous_clipboard)
+            if success:
+                print("Pasting image...")
+                keyboard.press_and_release('ctrl+v')
+                # Press Enter to complete the message
+                time.sleep(0.3)
+                keyboard.press_and_release('enter')
+            else:
+                # If image paste failed, just complete the message
+                print("Image paste failed")
+                keyboard.press_and_release('enter')
+            
+        else:
+            # No previous content or unsupported format, just paste the transcription
+            result = pipe(filename)
+            text = result["text"]
+            text = remove_you_thank_you(text)
+            set_clipboard_text(text)
+            print(f"Transcription: {text}")
+            print("No usable previous clipboard content found")
+            keyboard.press_and_release('ctrl+v')
+            
+    except Exception as e:
+        print(f"An error occurred during transcription: {e}")
+        traceback.print_exc()
 
     end_time = time.time()
     print(f"Time taken: {end_time - start_time:.2f} seconds")
@@ -413,6 +638,14 @@ def ctrl_alt_a_callback():
 def ctrl_alt_x_callback():
     # Ctrl+Alt+X triggers transcribe and paste (as per old functionality)
     toggle_recording("transcribe_paste")
+    
+def ctrl_alt_f_callback():
+    # Ctrl+Alt+F triggers transcribe and paste with previous clipboard content
+    # Clear any previous clipboard content to ensure we get the most recent
+    global previous_clipboard, clipboard_format
+    previous_clipboard = None
+    clipboard_format = None
+    toggle_recording("transcribe_paste_with_previous")
 
 def select_audio_file():
     """Open a file dialog to select an audio file and process it."""
@@ -484,7 +717,8 @@ icons_data = [
     {"color": "#4285F4", "text": "🔊", "tooltip": "Ctrl+Alt+Y", "command": lambda: toggle_recording("email")},
     {"color": "#EA4335", "text": "⏺", "tooltip": "Record", "command": lambda: toggle_recording("record")},
     {"color": "#34A853", "text": "💬", "tooltip": "Command", "command": command_button_clicked},
-    {"color": "#FBBC05", "text": "📂", "tooltip": "Select File", "command": select_audio_file}
+    {"color": "#FBBC05", "text": "📂", "tooltip": "Select File", "command": select_audio_file},
+    {"color": "#9C27B0", "text": "📋", "tooltip": "Ctrl+Alt+F", "command": ctrl_alt_f_callback}
 ]
 
 # Store button references
@@ -538,6 +772,7 @@ command_button = buttons[3]  # Command button
 notes_button = None  # Notes functionality is now in buttons[0] (ctrl+alt+x)
 select_button = buttons[4]  # Select Audio File button
 email_button = buttons[1]  # Email button
+previous_paste_button = buttons[5]  # Previous paste button (Ctrl+Alt+F)
 
 # Add this function to check if hotkeys are working
 def register_hotkeys():
@@ -552,6 +787,9 @@ def register_hotkeys():
         keyboard.add_hotkey('ctrl+alt+y', lambda: toggle_recording("email"))
         print("Registered Ctrl+Alt+Y")
         
+        keyboard.add_hotkey('ctrl+alt+f', ctrl_alt_f_callback)
+        print("Registered Ctrl+Alt+F")
+        
         print("All hotkeys registered successfully")
     except Exception as e:
         print(f"Error registering hotkeys: {e}")
@@ -559,12 +797,22 @@ def register_hotkeys():
 
 # Create a separate thread for hotkey registration
 def start_hotkey_thread():
-    hotkey_thread = threading.Thread(target=register_hotkeys)
-    hotkey_thread.daemon = True
-    hotkey_thread.start()
-    return hotkey_thread
+    try:
+        # Run the register_hotkeys function directly in the main thread
+        # This ensures all hotkeys are registered before the main loop starts
+        register_hotkeys()
+        return None  # No thread created, function executed directly
+    except Exception as e:
+        print(f"Error in hotkey registration: {e}")
+        traceback.print_exc()
+        return None
 
-# Replace the direct hotkey registration with the threaded version
-hotkey_thread = start_hotkey_thread()
+# Register hotkeys directly instead of in a separate thread
+# This avoids potential race conditions and ensures all hotkeys are registered
+start_hotkey_thread()
+
+# We don't need a periodic clipboard check anymore
+# Instead, we'll capture the clipboard content right before we need it
+# This is more efficient and avoids potential threading issues
 
 root.mainloop()
