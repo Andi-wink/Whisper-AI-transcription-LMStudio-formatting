@@ -16,6 +16,8 @@ from pydub import AudioSegment
 import numpy as np
 import io
 from PIL import Image, ImageTk, ImageDraw
+import queue
+import webrtcvad  # For voice activity detection
 
 # Import win32 modules with proper error handling
 try:
@@ -139,64 +141,216 @@ is_recording = False
 is_transcribing = False
 recording = None
 filename = None
-duration = 90  # seconds (adjust as needed)
-sample_rate = 44100
+max_duration = 90  # Maximum recording duration in seconds
+sample_rate = 16000  # Changed to 16kHz for compatibility with VAD
+chunk_duration = 0.03  # 30ms chunks for VAD processing
+silence_threshold = 0.5  # Amplitude threshold for silence detection
+silence_duration = 5.0  # Stop after 5 seconds of silence
 last_button_clicked = None
 clipboard_content = None
 previous_clipboard = None  # Store the previous clipboard content before transcription
 clipboard_format = None  # Store the format of the clipboard content (text or image)
 last_clipboard_check = time.time()  # Track when we last checked the clipboard
 
+# Global audio stream reference
+audio_stream = None
+
+# Initialize VAD (Voice Activity Detection)
+try:
+    vad = webrtcvad.Vad(3)  # Aggressiveness level 3 (highest)
+    vad_available = True
+except Exception as e:
+    print(f"Warning: Could not initialize WebRTC VAD: {e}")
+    print("Variable-length recording will use amplitude-based detection instead.")
+    vad_available = False
+
+# Audio processing queue and thread
+audio_queue = queue.Queue()
+recording_active = False
+silence_counter = 0
+audio_chunks = []
+
+def process_audio_chunks():
+    """Process audio chunks for voice activity detection."""
+    global recording_active, silence_counter, audio_chunks
+    
+    while recording_active:
+        try:
+            # Get chunk from queue with timeout
+            chunk = audio_queue.get(timeout=0.1)
+            audio_chunks.append(chunk)
+            
+            # Check for voice activity
+            has_voice = False
+            
+            if vad_available:
+                # Convert float32 samples to int16 for VAD
+                int16_chunk = (chunk * 32767).astype(np.int16).tobytes()
+                try:
+                    has_voice = vad.is_speech(int16_chunk, sample_rate)
+                except Exception:
+                    # Fallback to amplitude-based detection if VAD fails
+                    has_voice = np.max(np.abs(chunk)) > silence_threshold
+            else:
+                # Use simple amplitude threshold if VAD not available
+                has_voice = np.max(np.abs(chunk)) > silence_threshold
+            
+            if has_voice:
+                silence_counter = 0
+            else:
+                silence_counter += chunk_duration
+                
+                # Stop recording after silence_duration seconds of silence
+                if silence_counter >= silence_duration:
+                    print(f"Detected {silence_duration}s of silence, stopping recording")
+                    recording_active = False
+                    
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"Error in audio processing: {e}")
+    
+    # Signal main thread to stop recording
+    if not recording_active and is_recording:
+        root.after(0, stop_recording)
+
+def audio_callback(indata, frames, time_info, status):
+    """Callback for audio stream to process chunks in real-time."""
+    if status:
+        print(f"Audio callback status: {status}")
+    
+    # Put audio chunk in queue for processing
+    try:
+        audio_queue.put(indata.copy().reshape(-1))
+    except queue.Full:
+        print("Warning: Audio queue is full, dropping chunk")
+
 def start_recording():
-    """Start recording."""
-    global recording, filename, is_recording
+    """Start recording with voice activity detection."""
+    global recording, filename, is_recording, recording_active, silence_counter, audio_chunks, audio_stream
+    
     if is_recording:
         return  # Already recording
+        
+    # Reset state
+    silence_counter = 0
+    audio_chunks = []
+    recording_active = True
+    
+    # Create temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tf:
         filename = tf.name
-    recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1)
+    
+    # Start audio processing thread
+    audio_thread = threading.Thread(target=process_audio_chunks)
+    audio_thread.daemon = True
+    audio_thread.start()
+    
+    # Start audio stream
+    try:
+        # Close any existing stream first
+        if audio_stream is not None:
+            try:
+                audio_stream.stop()
+                audio_stream.close()
+            except Exception as e:
+                print(f"Warning: Error closing previous stream: {e}")
+        
+        # Create and start new stream
+        audio_stream = sd.InputStream(
+            channels=1,
+            samplerate=sample_rate,
+            blocksize=int(chunk_duration * sample_rate),
+            callback=audio_callback
+        )
+        audio_stream.start()
+    except Exception as e:
+        print(f"Error starting audio stream: {e}")
+        recording_active = False
+        return
+    
     is_recording = True
-    print("Recording started...")
-    root.after(duration * 1000, stop_recording)  # Stop after set duration
+    print("Recording started with voice activity detection...")
+    
+    # Safety timeout - maximum recording duration
+    root.after(max_duration * 1000, lambda: stop_recording() if is_recording else None)
 
 def stop_recording():
     """Stop recording."""
-    global recording, filename, is_recording
+    global is_recording, filename, recording_active, audio_stream
+    
     if not is_recording:
         return
-    sd.stop()
     
-    # ENHANCEMENT: Audio volume normalization and amplification to improve transcription accuracy
-    # This addresses the issue of recordings being too quiet for effective transcription
-    if recording is not None and len(recording) > 0:
-        # Convert to float32 if not already
-        if recording.dtype != np.float32:
-            recording = recording.astype(np.float32)
-            
-        # Calculate the maximum absolute amplitude
-        max_amplitude = np.max(np.abs(recording))
-        if max_amplitude > 0:
-            # Check if audio is too quiet (adjust threshold as needed)
-            if max_amplitude < 0.2:  # Increased threshold to catch more recordings
-                print(f"Audio volume is low (max amplitude: {max_amplitude:.4f}), applying amplification")
-                
-                # Apply stronger normalization for better volume
-                gain_factor = 1.8 / max_amplitude  # Doubled from 0.9 to 1.8 (can go to max 2.0 safely)
-                recording = recording * gain_factor
-                
-                print(f"Applied gain factor of {gain_factor:.2f}x")
-            else:
-                # Even if volume is adequate, still boost it a bit
-                gain_factor = 2.0  # Fixed gain for all recordings
-                recording = np.clip(recording * gain_factor, -1.0, 1.0)  # Clip to prevent distortion
-                print(f"Applied standard boost of {gain_factor:.2f}x to all audio")
-        else:
-            print("Warning: Recording appears to be silent (max amplitude: 0)")
+    # Stop the recording stream and thread
+    recording_active = False
     
-    sf.write(filename, recording, sample_rate)
+    # Properly close the audio stream
+    try:
+        if audio_stream is not None:
+            audio_stream.stop()
+            audio_stream.close()
+    except Exception as e:
+        print(f"Warning: Error closing audio stream: {e}")
+    
     is_recording = False
-    print(f"Recording saved to {filename}")
-    handle_transcription()
+    
+    # Combine all audio chunks
+    if audio_chunks and len(audio_chunks) > 0:
+        combined_audio = np.concatenate(audio_chunks)
+        
+        # ENHANCEMENT: Audio volume normalization and amplification
+        if len(combined_audio) > 0:
+            # Calculate the maximum absolute amplitude
+            max_amplitude = np.max(np.abs(combined_audio))
+            if max_amplitude > 0:
+                # Check if audio is too quiet
+                if max_amplitude < 0.2:
+                    print(f"Audio volume is low (max amplitude: {max_amplitude:.4f}), applying amplification")
+                    gain_factor = 1.8 / max_amplitude
+                    combined_audio = combined_audio * gain_factor
+                    print(f"Applied gain factor of {gain_factor:.2f}x")
+                else:
+                    # Standard boost for all audio
+                    gain_factor = 2.0
+                    combined_audio = np.clip(combined_audio * gain_factor, -1.0, 1.0)
+                    print(f"Applied standard boost of {gain_factor:.2f}x to all audio")
+            else:
+                print("Warning: Recording appears to be silent (max amplitude: 0)")
+                
+            # Trim silence from the end
+            if len(combined_audio) > sample_rate * 0.5:  # At least 0.5 seconds
+                # Find the last significant audio
+                window_size = int(0.03 * sample_rate)  # 30ms window
+                energy = []
+                
+                for i in range(0, len(combined_audio) - window_size, window_size):
+                    window = combined_audio[i:i+window_size]
+                    energy.append(np.mean(np.abs(window)))
+                
+                # Find the last point where energy is above threshold
+                threshold = max(np.mean(energy) * 0.1, 0.01)
+                last_sound_idx = len(energy) - 1
+                
+                while last_sound_idx > 0 and energy[last_sound_idx] < threshold:
+                    last_sound_idx -= 1
+                
+                # Add a small buffer after the last sound
+                buffer_frames = int(0.5 * sample_rate)  # 0.5 second buffer
+                end_frame = min((last_sound_idx + 1) * window_size + buffer_frames, len(combined_audio))
+                
+                # Trim the audio
+                combined_audio = combined_audio[:end_frame]
+                print(f"Trimmed audio from {len(audio_chunks) * chunk_duration:.2f}s to {len(combined_audio) / sample_rate:.2f}s")
+        
+        # Save the processed audio
+        sf.write(filename, combined_audio, sample_rate)
+        print(f"Recording saved to {filename} (duration: {len(combined_audio) / sample_rate:.2f}s)")
+        
+        # Process the recording
+        handle_transcription()
+    else:
+        print("No audio recorded or recording too short")
 
 def handle_transcription():
     """Handle transcription based on last_button_clicked."""
@@ -277,6 +431,121 @@ def log_memory_usage():
         print(f"\nGPU Memory Usage:")
         print(f"Allocated: {allocated:.2f} MB")
         print(f"Reserved:  {reserved:.2f} MB\n")
+
+def remove_repetitive_phrases(text):
+    """
+    Remove repetitive phrases that Whisper tends to hallucinate at the end of transcriptions.
+    This happens frequently when the audio cuts off abruptly.
+    """
+    # If text is too short, skip processing
+    if len(text) < 15:
+        return text
+    
+    clean_text = text
+    
+    # 0. First check for specific problematic patterns like "Subtitles by the Amara.org community"
+    amara_pattern = r'(Subtitles by the Amara\.org community[\s\.,!?]*)+'
+    if re.search(amara_pattern, clean_text, re.IGNORECASE):
+        # Remove all instances of this pattern
+        clean_text = re.sub(amara_pattern, '', clean_text, flags=re.IGNORECASE)
+        # Also check for "Thank you for watching" at the end
+        clean_text = re.sub(r'Thank you for watching\.?$', '', clean_text, flags=re.IGNORECASE)
+        return clean_text.strip()
+    
+    # 1. Check for common ending phrases that often repeat
+    common_endings = [
+        "thank you for watching",
+        "thanks for watching",
+        "subtitles by",
+        "good luck this week",
+        "thank you",
+        "amara.org community"
+    ]
+    
+    for ending in common_endings:
+        pattern = f"({re.escape(ending)}[\\s\\.,!?]*)+$"
+        matches = re.findall(pattern, clean_text.lower())
+        if matches:
+            # Find the first occurrence and remove all others
+            idx = clean_text.lower().find(ending)
+            if idx > 0:
+                clean_text = clean_text[:idx] + ending.capitalize() + "."
+                return clean_text
+    
+    # 2. Check for short phrases (2-3 words) that repeat
+    words = text.split()
+    for phrase_length in range(2, 4):  # Short phrases (2-3 words)
+        if len(words) < phrase_length * 2:
+            continue
+            
+        for i in range(len(words) - phrase_length * 2):
+            phrase = " ".join(words[i:i+phrase_length]).lower()
+            # Skip very short or common phrases
+            if len(phrase) < 8 and not any(word in phrase.lower() for word in ['thank', 'watching', 'luck']):
+                continue
+                
+            occurrences = 1  # Start with 1 since we're looking at the current phrase
+            positions = [i]
+            
+            # Count occurrences and positions
+            for j in range(i + phrase_length, len(words) - phrase_length + 1, 1):
+                if " ".join(words[j:j+phrase_length]).lower() == phrase:
+                    occurrences += 1
+                    positions.append(j)
+                    
+            if occurrences >= 2:
+                # Keep only the first occurrence
+                first_pos = positions[0]
+                first_phrase = " ".join(words[first_pos:first_pos+phrase_length])
+                
+                # Build a new text
+                before_first = " ".join(words[:first_pos])
+                after_last_unique = []
+                last_repeated_end = positions[-1] + phrase_length
+                if last_repeated_end < len(words):
+                    after_last_unique = words[last_repeated_end:]
+                
+                new_text = before_first + " " + first_phrase
+                if after_last_unique:
+                    new_text += " " + " ".join(after_last_unique)
+                
+                return new_text.strip()
+    
+    # 3. Check for longer repeated sequences (4+ words)
+    for phrase_length in range(4, 12):  # Check phrases of different lengths
+        if len(words) < phrase_length * 2:
+            continue
+            
+        for i in range(len(words) - phrase_length * 2):
+            phrase1 = " ".join(words[i:i+phrase_length])
+            occurrences = 0
+            
+            # Count occurrences of this phrase in the remaining text
+            for j in range(i, len(words) - phrase_length + 1, phrase_length):
+                if " ".join(words[j:j+phrase_length]) == phrase1:
+                    occurrences += 1
+                else:
+                    break
+                    
+            # If phrase repeats 2+ times, it's likely hallucination
+            if occurrences >= 2:
+                # Create regex pattern to remove all but the first occurrence
+                pattern = f"({re.escape(phrase1)}\\s*)+"
+                clean_text = re.sub(pattern, phrase1 + " ", clean_text)
+                return clean_text.strip()
+    
+    # 4. Check for sentences repeating at the end
+    sentences = re.split(r'[.!?]+\s*', clean_text)
+    if len(sentences) >= 3:
+        last_sentence = sentences[-1].strip()
+        second_last = sentences[-2].strip()
+        
+        # If last sentence and second last are the same, remove the last one
+        if last_sentence and last_sentence.lower() == second_last.lower():
+            clean_text = '.'.join(sentences[:-1]) + '.'
+            return clean_text
+    
+    return clean_text
 
 def transcribe_and_send(button_type):
     """Transcribe and send to AI model."""
@@ -360,6 +629,8 @@ def transcribe_and_send(button_type):
 
         text = result["text"]
         text = remove_you_thank_you(text)
+        # Remove any repetitive hallucinated phrases
+        text = remove_repetitive_phrases(text)
         pyperclip.copy(text)
         print(f"Transcription: {text}")
 
@@ -396,6 +667,8 @@ def transcribe_and_paste():
         result = pipe(filename)
         text = result["text"]
         text = remove_you_thank_you(text)
+        # Remove any repetitive hallucinated phrases
+        text = remove_repetitive_phrases(text)
         set_clipboard_text(text)
         print(f"Transcription: {text}")
         # Simulate Ctrl+V to paste the transcribed text
@@ -621,6 +894,8 @@ def create_notes_from_transcription():
         return
     result = pipe(filename)
     text = remove_you_thank_you(result["text"])
+    # Remove any repetitive hallucinated phrases
+    text = remove_repetitive_phrases(text)
     bullets = "\n".join([f"- {line.strip()}" for line in text.split('.') if line.strip()])
     pyperclip.copy(bullets)
     print(f"Notes:\n{bullets}")
@@ -701,9 +976,9 @@ def create_circular_icon(color, size=40, icon_text=""):
     
     # Add text if provided
     if icon_text:
-        # For simplicity, we're using text instead of proper icons
-        # In a production app, you'd load actual icon images
-        draw.text((size//2, size//2), icon_text, fill="white", anchor="mm")
+            # For simplicity, we're using text instead of proper icons
+            # In a production app, you'd load actual icon images
+            draw.text((size//2, size//2), icon_text, fill="white", anchor="mm")
         
     return ImageTk.PhotoImage(image)
 
@@ -811,8 +1086,18 @@ def start_hotkey_thread():
 # This avoids potential race conditions and ensures all hotkeys are registered
 start_hotkey_thread()
 
+# Add webrtcvad to requirements if not already installed
+print("\nNOTE: This script requires the webrtcvad package for voice activity detection.")
+print("If not installed, run: pip install webrtcvad")
+
 # We don't need a periodic clipboard check anymore
 # Instead, we'll capture the clipboard content right before we need it
 # This is more efficient and avoids potential threading issues
+
+# Display info about variable-length recording
+print("\nVariable-length recording enabled:")
+print(f"- Maximum duration: {max_duration} seconds")
+print(f"- Will stop automatically after {silence_duration} seconds of silence")
+print(f"- Voice activity detection: {'Enabled' if vad_available else 'Using amplitude fallback'}")
 
 root.mainloop()
