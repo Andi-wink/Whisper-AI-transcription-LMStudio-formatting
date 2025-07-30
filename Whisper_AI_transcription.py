@@ -145,7 +145,7 @@ max_duration = 90  # Maximum recording duration in seconds
 sample_rate = 16000  # Changed to 16kHz for compatibility with VAD
 chunk_duration = 0.03  # 30ms chunks for VAD processing
 silence_threshold = 0.5  # Amplitude threshold for silence detection
-silence_duration = 5.0  # Stop after 5 seconds of silence
+silence_duration = 7.0  # Stop after 5 seconds of silence
 last_button_clicked = None
 clipboard_content = None
 previous_clipboard = None  # Store the previous clipboard content before transcription
@@ -572,8 +572,9 @@ def transcribe_and_send(button_type):
         )
     elif button_type == "command":
         content = (
-            "You are Andrew's assistant. Listen to his instructions and respond to messages sent to him as he would "
-            "in a professional way and format your response as if it were a business email."
+            "You are Andrew's personal assistant. Provide extremely concise, direct answers with no extra text or explanations. "
+            "For URLs, provide only the URL. For facts, provide only the answer. For questions like 'What is the capital of England?' "
+            "respond only with 'London'. Be as brief as possible while being accurate."
         )
     elif button_type == "notes":
         content = "N/A"
