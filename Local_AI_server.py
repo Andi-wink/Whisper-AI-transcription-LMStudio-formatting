@@ -1,37 +1,62 @@
-from openai import OpenAI
+import requests
+import json
 import pyperclip
 
-# Point to the local server
-client = OpenAI(base_url="http://localhost:1234/v1", api_key="not-needed")
+# Ollama API endpoint (default is localhost:11434)
+OLLAMA_API_URL = "http://localhost:11434/api/chat"
+# Model name to use (Gemma3n as requested)
+MODEL_NAME = "gemma3:4b"
 
 
 def send_transcription(transcription, content, additional_content=None):
     # Define the initial history with the system's role
-    history = [
+    messages = [
         {"role": "system", "content": content},
-        {"role": "user", "content": transcription},  # Add the transcription directly as the user's content
+        {"role": "user", "content": transcription}
     ]
 
     if additional_content:
-        history.append({"role": "user",
-                        "content": additional_content})  # Add the additional content from the clipboard only if present
+        messages.append({"role": "user", "content": additional_content})
 
-    # Request a completion from the local AI model
-    completion = client.chat.completions.create(
-        model="local-model",  # This field is currently unused but set for potential future use
-        messages=history,
-        temperature=0.7,
-        stream=True,
+    # Prepare the request payload
+    payload = {
+        "model": MODEL_NAME,
+        "messages": messages,
+        "stream": True,
+        "options": {
+            "temperature": 0.7
+        }
+    }
+
+    print(f"Sending request to Ollama ({MODEL_NAME})...")
+    
+    # Make streaming request to Ollama API
+    response = requests.post(
+        OLLAMA_API_URL,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        stream=True
     )
-
+    
     # Initialize a variable to hold the AI's response
     ai_response = ""
-
-    # Iterate through the completion to get the AI's response
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            print(chunk.choices[0].delta.content, end="", flush=True)
-            ai_response += chunk.choices[0].delta.content
+    
+    # Process the streaming response
+    if response.status_code == 200:
+        for line in response.iter_lines():
+            if line:
+                try:
+                    json_response = json.loads(line)
+                    if "message" in json_response and "content" in json_response["message"]:
+                        chunk = json_response["message"]["content"]
+                        print(chunk, end="", flush=True)
+                        ai_response += chunk
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+    else:
+        print(f"Error: Received status code {response.status_code} from Ollama API")
+        print(response.text)
+        return f"Error: Failed to get response from Ollama (status code: {response.status_code})"
 
     # Define unwanted starting phrases
     unwanted_starts = [

@@ -18,6 +18,7 @@ import io
 from PIL import Image, ImageTk, ImageDraw
 import queue
 import webrtcvad  # For voice activity detection
+from moviepy.editor import VideoFileClip  # For video file processing
 
 # Import win32 modules with proper error handling
 try:
@@ -915,6 +916,101 @@ def ctrl_alt_x_callback():
     # Ctrl+Alt+X triggers transcribe and paste (as per old functionality)
     toggle_recording("transcribe_paste")
     
+def select_audio_file():
+    """Select and transcribe an audio file or MOV video file."""
+    global filename, last_button_clicked
+    
+    print("=== SELECT_AUDIO_FILE FUNCTION CALLED ===")
+    print(f"Current global filename: {filename}")
+    print(f"Current last_button_clicked: {last_button_clicked}")
+    
+    # Open file dialog for audio and video files
+    file_path = filedialog.askopenfilename(
+        title="Select Audio or Video File",
+        filetypes=[
+            ("Audio/Video files", "*.wav *.mp3 *.m4a *.flac *.ogg *.mov *.mp4"),
+            ("Audio files", "*.wav *.mp3 *.m4a *.flac *.ogg"),
+            ("Video files", "*.mov *.mp4"),
+            ("All files", "*.*")
+        ]
+    )
+    
+    if not file_path:
+        print("User cancelled file selection")
+        return  # User cancelled
+    
+    print(f"Selected file: {file_path}")
+    print(f"File extension check: {file_path.lower().endswith(('.mov', '.mp4'))}")
+    
+    print("Entering try block for file processing...")
+    
+    try:
+        # Check if it's a video file (MOV or MP4)
+        print(f"Checking if file is video: {file_path.lower().endswith(('.mov', '.mp4'))}")
+        if file_path.lower().endswith(('.mov', '.mp4')):
+            print(f"Processing video file: {file_path}")
+            
+            try:
+                # Extract audio from video using MoviePy
+                print("Loading video with MoviePy...")
+                video = VideoFileClip(file_path)
+                print("Video loaded successfully")
+                
+                # Check if video has audio
+                if video.audio is None:
+                    print("Error: Video file has no audio track")
+                    video.close()
+                    return
+                
+                print("Video has audio track, proceeding with extraction...")
+                
+                # Create temporary audio file
+                temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+                temp_audio_path = temp_audio.name
+                temp_audio.close()
+                print(f"Created temporary file: {temp_audio_path}")
+                
+                # Extract audio and save as WAV
+                print("Extracting audio from video...")
+                video.audio.write_audiofile(temp_audio_path, verbose=False, logger=None)
+                print("Audio extraction completed")
+                video.close()
+                print("Video file closed")
+                
+                # Set the extracted audio as the file to transcribe (GLOBAL UPDATE)
+                filename = temp_audio_path
+                print(f"Audio extracted to: {temp_audio_path}")
+                print(f"Global filename updated to: {filename}")
+                
+            except Exception as video_error:
+                print(f"Error during video processing: {str(video_error)}")
+                import traceback
+                traceback.print_exc()
+                return
+            
+        else:
+            # It's an audio file, use directly
+            print(f"Processing audio file: {file_path}")
+            filename = file_path
+            print(f"Global filename set to: {filename}")
+        
+        # Verify the filename is set correctly
+        print(f"Final filename before transcription: {filename}")
+        
+        # Set the button type for transcription handling
+        last_button_clicked = 'select_file'
+        print(f"Button type set to: {last_button_clicked}")
+        
+        # Start transcription
+        print("Starting transcription...")
+        handle_transcription()
+        
+    except Exception as e:
+        print(f"EXCEPTION CAUGHT IN SELECT_AUDIO_FILE: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        print("=== END OF SELECT_AUDIO_FILE EXCEPTION ===")
+
 def ctrl_alt_f_callback():
     # Ctrl+Alt+F triggers transcribe and paste with previous clipboard content
     # Clear any previous clipboard content to ensure we get the most recent
