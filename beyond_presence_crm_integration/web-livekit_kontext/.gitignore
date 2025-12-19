@@ -1,0 +1,90 @@
+# Dependencies
+node_modules/
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js
+/.next/
+/out/
+/build
+
+# Testing
+/coverage
+test-results/
+playwright-report/
+e2e/screenshots/
+
+# Environment files (SECRETS - never commit!)
+.env
+.env.*
+.env.local
+*.env
+python-agent/.env
+**/*.env
+!.env.example
+!python-agent/.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+venv_local/
+python-agent/venv_local/
+
+# Logs (never commit logs)
+*.log
+python-agent/*.log
+
+# Debug/test files (not needed for production)
+_archive/
+python-agent/_archive/
+python-agent/debug_*.py
+python-agent/test_*.py
+python-agent/inspect_*.py
+python-agent/check_*.py
+python-agent/fix_*.py
+python-agent/cli_assistant.py
+python-agent/Basic_testing_agent*.py
+python-agent/Groq_*.py
+python-agent/simple_agent.py
+python-agent/run_agent_manual.py
+python-agent/groq_agent_clean.py
+
+# Embedded git repos
+python-agent/avatar-agent/
+
+# LiveKit Cloud config (contains project-specific IDs)
+livekit.toml
+python-agent/livekit.toml
+python-agent/livekit-agent.json
+
+# Old/unused scripts
+check_sdk.js
+generate-token.js
+install_nodejs.bat
+start_webapp.bat
+test-livekit-connection.js
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+python-agent/uv.lock
+
+# IDE
+.idea/
+.vscode/
+
+# Misc
+.DS_Store
+*.pem
+.vercel
+*.tsbuildinfo
+next-env.d.ts

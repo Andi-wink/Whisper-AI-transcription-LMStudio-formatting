@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --glass-bg: rgba(20, 20, 20, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --text-color: #ffffff;
+  --accent-color: #3b82f6;
+  --visualizer-color: #10b981;
+  --bg-color: #050505;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg-color);
+  min-height: 100vh;
+  color: var(--text-color);
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Utility Class */
+.glass-card {
+  background: #111;
+  border: 1px solid #222;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.glass-card:hover {
+  border-color: #444;
+  background: #161616;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Visualizer Styles */
+.visualizer-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  /* Doubled from 12px */
+  height: 240px;
+  /* Doubled from 120px */
+}
+
+.visualizer-bar {
+  width: 40px;
+  /* Doubled from 20px */
+  background: var(--visualizer-color);
+  border-radius: 20px;
+  /* Doubled from 10px */
+  height: 20%;
+  /* Default height */
+  transition: height 0.05s ease;
+  /* Smooth transition for JS updates */
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+  /* Doubled shadow */
+}
+
+/* Loading Spinner */
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(16, 185, 129, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--visualizer-color);
+  animation: spin 1s ease-in-out infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* UI Prototype Styles */
+:root {
+  --sidebar-bg: #111111;
+  --text-muted: #888888;
+  --accent-hover: #1db954;
+  --danger-color: #ff4444;
+  --control-bg: rgba(255, 255, 255, 0.1);
+  --control-hover: rgba(255, 255, 255, 0.2);
+}
+
+/* Floating Controls */
+.control-bar {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 70;
+  /* Kept high for overlay */
+  pointer-events: auto;
+}
+
+/* Vocalizer */
+.vocalizer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 24px;
+  min-width: 24px;
+}
+
+.vocalizer-bar {
+  width: 3px;
+  height: 10px;
+  background-color: var(--text-color);
+  border-radius: 2px;
+  animation: pulse 1s infinite ease-in-out;
+}
+
+.vocalizer-bar:nth-child(1) {
+  animation-delay: 0.0s;
+  height: 12px;
+}
+
+.vocalizer-bar:nth-child(2) {
+  animation-delay: 0.1s;
+  height: 18px;
+}
+
+.vocalizer-bar:nth-child(3) {
+  animation-delay: 0.2s;
+  height: 16px;
+}
+
+.vocalizer-bar:nth-child(4) {
+  animation-delay: 0.3s;
+  height: 14px;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scaleY(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleY(1.2);
+  }
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin: 0 4px;
+}
+
+.btn-control {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-control:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.btn-control.active {
+  background-color: var(--visualizer-color);
+  /* customized to match project green */
+  color: #000;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-end {
+  background-color: var(--danger-color);
+}
+
+.btn-end:hover {
+  background-color: #ff2222;
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.4);
+}

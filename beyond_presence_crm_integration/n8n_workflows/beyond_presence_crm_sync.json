@@ -1,0 +1,340 @@
+{
+  "name": "Beyond Presence CRM Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "beyond-presence-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "call.ended",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "call_ended"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "call.started",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "call_started"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "event-router",
+      "name": "Route Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.bey.dev/v1/calls/{{ $json.call_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "beyondPresenceApi",
+        "options": {}
+      },
+      "id": "fetch-transcript",
+      "name": "Fetch Call Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 200],
+      "credentials": {
+        "beyondPresenceApi": {
+          "id": "1",
+          "name": "Beyond Presence API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "extractData",
+        "prompt": "=Extract the following information from this call transcript:\n\n{{ $json.transcript }}\n\nExtract:\n- customer_name: Full name of the customer\n- customer_email: Email address\n- customer_phone: Phone number\n- inquiry_type: Type of inquiry (sales, support, general)\n- inquiry_details: Brief summary of what they need\n- sentiment: Overall sentiment (positive, neutral, negative)\n- follow_up_required: true/false if follow-up is needed\n\nReturn as JSON.",
+        "options": {
+          "systemMessage": "You are a data extraction assistant. Extract structured information from call transcripts and return valid JSON only."
+        }
+      },
+      "id": "extract-data",
+      "name": "Extract Customer Data",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "resource": "task",
+        "operation": "create",
+        "listId": "={{ $env.CLICKUP_LIST_ID }}",
+        "name": "=Lead - {{ $json.customer_phone }} - {{ $json.customer_name }}",
+        "additionalFields": {
+          "customFieldsJson": "={{ JSON.stringify({\n  'customer_name': $json.customer_name,\n  'customer_email': $json.customer_email,\n  'customer_phone': $json.customer_phone,\n  'inquiry_type': $json.inquiry_type,\n  'inquiry_details': $json.inquiry_details,\n  'sentiment': $json.sentiment,\n  'call_duration': $('Fetch Call Transcript').item.json.duration,\n  'call_transcript': $('Fetch Call Transcript').item.json.transcript,\n  'call_date': $now.toISO()\n}) }}",
+          "status": "to do",
+          "priority": "={{ $json.follow_up_required ? 3 : 2 }}"
+        }
+      },
+      "id": "create-crm-lead",
+      "name": "Create CRM Lead",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [1050, 200],
+      "credentials": {
+        "clickUpApi": {
+          "id": "2",
+          "name": "ClickUp API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.follow_up_required }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-follow-up",
+      "name": "Check If Follow-up Required",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.NOTIFICATION_EMAIL }}",
+        "toEmail": "={{ $env.SALES_TEAM_EMAIL }}",
+        "subject": "=New Lead Requires Follow-up: {{ $json.customer_name }}",
+        "emailType": "html",
+        "message": "=<h2>New Lead from Beyond Presence Avatar</h2>\n\n<p><strong>Customer:</strong> {{ $json.customer_name }}</p>\n<p><strong>Phone:</strong> {{ $json.customer_phone }}</p>\n<p><strong>Email:</strong> {{ $json.customer_email }}</p>\n<p><strong>Inquiry Type:</strong> {{ $json.inquiry_type }}</p>\n<p><strong>Sentiment:</strong> {{ $json.sentiment }}</p>\n\n<h3>Details:</h3>\n<p>{{ $json.inquiry_details }}</p>\n\n<p><a href=\"{{ $('Create CRM Lead').item.json.url }}\">View in CRM</a></p>\n\n<hr>\n<p><em>Call Duration: {{ $('Fetch Call Transcript').item.json.duration }}s</em></p>",
+        "options": {}
+      },
+      "id": "send-notification",
+      "name": "Send Email Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1450, 150],
+      "credentials": {
+        "smtp": {
+          "id": "3",
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Call processed successfully\", \"lead_id\": $('Create CRM Lead').item.json.id } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "resource": "task",
+        "listId": "={{ $env.CLICKUP_LIST_ID }}",
+        "name": "=Call Started: {{ $json.caller_number || 'Unknown' }}",
+        "additionalFields": {
+          "customFieldsJson": "={{ JSON.stringify({\n  'call_id': $json.call_id,\n  'agent_id': $json.agent_id,\n  'caller_number': $json.caller_number,\n  'call_start_time': $now.toISO()\n}) }}",
+          "status": "in progress"
+        }
+      },
+      "id": "log-call-start",
+      "name": "Log Call Start",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [650, 400],
+      "credentials": {
+        "clickUpApi": {
+          "id": "2",
+          "name": "ClickUp API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Call started logged\" } }}"
+      },
+      "id": "webhook-response-start",
+      "name": "Webhook Response Start",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Event Type": {
+      "main": [
+        [
+          {
+            "node": "Fetch Call Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Call Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Call Transcript": {
+      "main": [
+        [
+          {
+            "node": "Extract Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Customer Data": {
+      "main": [
+        [
+          {
+            "node": "Create CRM Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create CRM Lead": {
+      "main": [
+        [
+          {
+            "node": "Check If Follow-up Required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Follow-up Required": {
+      "main": [
+        [
+          {
+            "node": "Send Email Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Notification": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Call Start": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-15T20:00:00.000Z",
+  "versionId": "1"
+}

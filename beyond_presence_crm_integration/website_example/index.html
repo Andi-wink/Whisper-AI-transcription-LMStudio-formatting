@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Avatar Assistant</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Avatar Assistant</h1>
+      <p>Speak with our AI-powered customer service representative</p>
+    </header>
+
+    <main>
+      <div id="avatar-container">
+        <video id="avatar-video" autoplay playsinline muted></video>
+        
+        <div id="loading" class="hidden">
+          <div class="spinner"></div>
+          <p>Connecting...</p>
+        </div>
+        
+        <div id="welcome-screen">
+          <div class="welcome-content">
+            <div class="avatar-placeholder">
+              <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                <circle cx="60" cy="60" r="60" fill="#4CAF50" opacity="0.1"/>
+                <circle cx="60" cy="45" r="20" fill="#4CAF50"/>
+                <path d="M30 90 Q30 70 60 70 Q90 70 90 90" fill="#4CAF50"/>
+              </svg>
+            </div>
+            <h2>Ready to Help</h2>
+            <p>Click below to start a conversation with our AI assistant</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="controls">
+        <button id="start-btn" class="btn btn-primary">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 2C6.13 2 3 5.13 3 9v4c0 1.1.9 2 2 2h1V9c0-2.76 2.24-5 5-5s5 2.24 5 5v6h1c1.1 0 2-.9 2-2V9c0-3.87-3.13-7-7-7z"/>
+          </svg>
+          Start Conversation
+        </button>
+        
+        <button id="end-btn" class="btn btn-danger hidden">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm4 10.5H6V11h8v1.5z"/>
+          </svg>
+          End Call
+        </button>
+        
+        <button id="mute-btn" class="btn btn-secondary hidden">
+          <svg id="mic-on-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 2C8.34 2 7 3.34 7 5v5c0 1.66 1.34 3 3 3s3-1.34 3-3V5c0-1.66-1.34-3-3-3zm5.91 5c-.49 0-.9.36-.98.85C14.72 9.57 12.55 11 10 11s-4.72-1.43-4.93-3.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V16c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.09-.6-.39-1.14-1-1.14z"/>
+          </svg>
+          <svg id="mic-off-icon" class="hidden" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M15 5v5c0 1.66-1.34 3-3 3-.54 0-1.04-.14-1.48-.38l1.71-1.71c.08-.17.13-.36.13-.57V5c0-1.66-1.34-3-3-3S6 3.34 6 5v.17l-2.77-2.77L2 3.63l16 16 1.23-1.23L15 14.17V5z"/>
+          </svg>
+          Mute
+        </button>
+      </div>
+
+      <div id="status">
+        <div class="status-indicator"></div>
+        <span id="status-text">Ready to connect</span>
+      </div>
+
+      <div id="transcript-container" class="hidden">
+        <h3>Conversation</h3>
+        <div id="transcript"></div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="features">
+        <div class="feature">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#4CAF50">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span>Real-time CRM Integration</span>
+        </div>
+        <div class="feature">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#4CAF50">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span>Natural Conversation</span>
+        </div>
+        <div class="feature">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#4CAF50">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span>24/7 Availability</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- LiveKit Client SDK -->
+  <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
+  
+  <!-- Configuration -->
+  <script>
+    // IMPORTANT: Replace with your actual endpoints
+    const CONFIG = {
+      tokenEndpoint: 'https://your-token-server.railway.app/api/get-token',
+      // Or if running locally: 'http://localhost:3000/api/get-token'
+    };
+  </script>
+  
+  <!-- Main Application -->
+  <script src="app.js"></script>
+</body>
+</html>

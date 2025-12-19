@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# LiveKit Handoff Agent Dockerfile (Forward to Claims)
+
+ARG PYTHON_VERSION=3.11
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim AS base
+
+ENV PYTHONUNBUFFERED=1
+
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/app" \
+    --shell "/sbin/nologin" \
+    --uid "${UID}" \
+    appuser
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked
+
+COPY config.py ./
+COPY agents/ ./agents/
+COPY integrations/ ./integrations/
+COPY demo_agents/ ./demo_agents/
+
+RUN chown -R appuser:appuser /app
+USER appuser
+
+RUN uv run demo_agents/demo_4_handoff.py download-files
+
+CMD ["uv", "run", "demo_agents/demo_4_handoff.py", "start"]

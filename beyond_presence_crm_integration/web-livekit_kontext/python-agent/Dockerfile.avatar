@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1
+# LiveKit Avatar Agent Dockerfile
+
+ARG PYTHON_VERSION=3.11
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim AS base
+
+# Keeps Python from buffering stdout and stderr
+ENV PYTHONUNBUFFERED=1
+
+# Create a non-privileged user
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/app" \
+    --shell "/sbin/nologin" \
+    --uid "${UID}" \
+    appuser
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency files first for layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies
+RUN uv sync --locked
+
+# Copy application code
+COPY config.py ./
+COPY agents/ ./agents/
+COPY integrations/ ./integrations/
+COPY demo_agents/ ./demo_agents/
+
+# Set ownership
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Download model files (VAD, turn detector, etc.)
+RUN uv run demo_agents/demo_3_avatar.py download-files
+
+# Run the AVATAR agent
+CMD ["uv", "run", "demo_agents/demo_3_avatar.py", "start"]

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Interface Mockup</title>
+    <link rel="stylesheet" href="mockup.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Top Status Bar -->
+    <div class="top-bar">
+        <div class="status-indicator">
+            <div class="dot"></div>
+            <span>Connected</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+
+        <!-- Video Section (Left) -->
+        <div class="video-section">
+            <div class="video-wrapper">
+                <!-- Placeholder Image representing the video stream -->
+                <div class="video-placeholder"></div>
+
+                <!-- Floating Controls -->
+                <div class="control-bar">
+                    <!-- Vocalizer Visual -->
+                    <div class="vocalizer">
+                        <div class="vocalizer-bar"></div>
+                        <div class="vocalizer-bar"></div>
+                        <div class="vocalizer-bar"></div>
+                        <div class="vocalizer-bar"></div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <button class="btn-control" title="Toggle Microphone">
+                        <!-- Microphone Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+
+                    <button class="btn-control" title="Toggle Camera">
+                        <!-- Video Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                    </button>
+
+                    <button class="btn-control active" title="Toggle Chat">
+                        <!-- Chat Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </button>
+
+                    <button class="btn-control btn-end" title="End Call">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91">
+                            </path>
+                            <line x1="23" y1="1" x2="1" y2="23"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Sidebar (Right) -->
+        <div class="chat-sidebar">
+            <div class="chat-header">
+                CHAT
+            </div>
+
+            <div class="chat-messages">
+                <!-- Agent Message -->
+                <div class="message agent">
+                    <div class="msg-bubble">
+                        Hello Andrew! Great to see you, I'm your Insurance assistant. What can I help you with today?
+                    </div>
+                    <span class="msg-info">05:30</span>
+                </div>
+
+                <!-- User Message -->
+                <div class="message user">
+                    <div class="msg-bubble">
+                        Hi, I am worried about the contract!
+                    </div>
+                    <span class="msg-info">05:31</span>
+                </div>
+
+                <!-- Agent Message -->
+                <div class="message agent">
+                    <div class="msg-bubble">
+                        I understand your concern. Can you specify which part of the contract you're referring to?
+                    </div>
+                    <span class="msg-info">05:32</span>
+                </div>
+
+                <!-- User Message -->
+                <div class="message user">
+                    <div class="msg-bubble">
+                        Clause 14, specifically.
+                    </div>
+                    <span class="msg-info">05:32</span>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="input-wrapper">
+                    <input type="text" class="chat-input" placeholder="Type a message...">
+                    <button class="btn-send">SEND</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

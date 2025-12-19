@@ -1,0 +1,292 @@
+{
+  "name": "LiveKit Call Summary (No Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "livekit-call-summary",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "webhook-1",
+      "name": "Receive Call Summary",
+      "webhookId": "livekit-call-summary"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-call-ended",
+              "leftValue": "={{ $json.body.event_type }}",
+              "rightValue": "call_ended",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [220, 0],
+      "id": "filter-1",
+      "name": "Is Call Ended?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "call_id",
+              "name": "call_id",
+              "value": "={{ $json.body.call_id }}",
+              "type": "string"
+            },
+            {
+              "id": "user_name",
+              "name": "user_name",
+              "value": "={{ $json.body.user_name }}",
+              "type": "string"
+            },
+            {
+              "id": "user_email",
+              "name": "user_email",
+              "value": "={{ $json.body.user_email }}",
+              "type": "string"
+            },
+            {
+              "id": "transcript",
+              "name": "transcript",
+              "value": "={{ $json.body.full_transcript_text }}",
+              "type": "string"
+            },
+            {
+              "id": "sentiment",
+              "name": "sentiment",
+              "value": "={{ $json.body.sentiment }}",
+              "type": "string"
+            },
+            {
+              "id": "duration",
+              "name": "call_duration_seconds",
+              "value": "={{ $json.body.call_duration_seconds }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0],
+      "id": "set-1",
+      "name": "Extract Fields"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an AI assistant that creates professional email summaries of customer support calls.\n\nCreate a summary email for this call:\n\n**Customer:** {{ $json.user_name }}\n**Call Duration:** {{ Math.floor($json.call_duration_seconds / 60) }} minutes {{ $json.call_duration_seconds % 60 }} seconds\n**Sentiment:** {{ $json.sentiment }}\n\n**Transcript:**\n{{ $json.transcript }}\n\nGenerate a professional HTML email that:\n1. Thanks the customer by name for calling\n2. Summarizes any actions taken or discussed\n3. Lists any next steps if applicable\n4. Ends with a professional closing\n\nOutput ONLY the HTML body content (no <html> or <body> tags, just the inner content). Use <p>, <ul>, <li>, <strong> tags for formatting."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [660, 0],
+      "id": "openai-1",
+      "name": "Generate Email Summary",
+      "credentials": {
+        "openAiApi": {
+          "id": "XOwtKWo0kz9mdnK8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email_body",
+              "name": "email_body",
+              "value": "={{ $json.message.content }}",
+              "type": "string"
+            },
+            {
+              "id": "call_id",
+              "name": "call_id",
+              "value": "={{ $('Extract Fields').item.json.call_id }}",
+              "type": "string"
+            },
+            {
+              "id": "user_name",
+              "name": "user_name",
+              "value": "={{ $('Extract Fields').item.json.user_name }}",
+              "type": "string"
+            },
+            {
+              "id": "user_email",
+              "name": "user_email",
+              "value": "={{ $('Extract Fields').item.json.user_email }}",
+              "type": "string"
+            },
+            {
+              "id": "transcript",
+              "name": "transcript",
+              "value": "={{ $('Extract Fields').item.json.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "sentiment",
+              "name": "sentiment",
+              "value": "={{ $('Extract Fields').item.json.sentiment }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [880, 0],
+      "id": "set-2",
+      "name": "Prepare Email Data"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.user_email }}",
+        "subject": "=Summary of Your Support Call - {{ $json.call_id }}",
+        "message": "={{ $json.email_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1100, 0],
+      "id": "gmail-1",
+      "name": "Send Email Summary",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kdEJYKU8A9AaK6UM",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/548051908812",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: { call_summary: $json.email_body, full_call_transcript: $json.transcript, ai_sentiment: $json.sentiment } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1320, 0],
+      "id": "hubspot-1",
+      "name": "Update HubSpot Contact",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "z1ytAoMPl0Zs1kiX",
+          "name": "Hubspot Auth account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Call Summary": {
+      "main": [
+        [
+          {
+            "node": "Is Call Ended?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Call Ended?": {
+      "main": [
+        [
+          {
+            "node": "Extract Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Fields": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email Summary": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send Email Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Summary": {
+      "main": [
+        [
+          {
+            "node": "Update HubSpot Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

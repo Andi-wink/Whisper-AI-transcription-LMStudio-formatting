@@ -1,0 +1,46 @@
+{
+  "name": "web-livekit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
+  },
+  "dependencies": {
+    "@bey-dev/sdk": "^0.0.1",
+    "livekit-client": "^2.15.6",
+    "livekit-server-sdk": "^2.13.3",
+    "next": "15.5.7",
+    "react": "19.1.2",
+    "react-dom": "19.1.2"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.57.0",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.2",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.1.1",
+    "jest-environment-jsdom": "^30.1.1",
+    "tailwindcss": "^4",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5"
+  }
+}

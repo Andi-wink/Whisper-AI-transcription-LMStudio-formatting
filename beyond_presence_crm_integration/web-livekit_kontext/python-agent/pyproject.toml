@@ -1,0 +1,19 @@
+[project]
+name = "beyondpresence-livekit-agent"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "livekit>=1.0.0,<2.0.0",
+    "livekit-agents>=1.2.0",
+    "livekit-plugins-openai>=1.0.0",
+    "livekit-plugins-bey>=1.0.0",
+    "livekit-plugins-deepgram>=1.0.0",
+    "livekit-plugins-silero>=1.0.0",
+    "livekit-plugins-groq>=0.1.0",
+    "livekit-plugins-cartesia>=1.0.0",
+    "python-dotenv>=1.0.1",
+    "aiohttp>=3.9.5",
+]
+
+[tool.uv]
+dev-dependencies = []

@@ -1,0 +1,330 @@
+/* mockup.css */
+:root {
+    --bg-color: #0a0a0a;
+    --sidebar-bg: #111111;
+    --text-color: #ffffff;
+    --text-muted: #888888;
+    --accent-color: #1ed760;
+    /* Spotify-like green */
+    --accent-hover: #1db954;
+    --danger-color: #ff4444;
+    --control-bg: rgba(255, 255, 255, 0.1);
+    --control-hover: rgba(255, 255, 255, 0.2);
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header */
+.top-bar {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid #222;
+    font-size: 12px;
+    color: var(--text-muted);
+    justify-content: space-between;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-color);
+}
+
+/* Main Layout */
+.main-container {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 40px);
+}
+
+/* Video Area */
+.video-section {
+    flex: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background-color: #000;
+}
+
+.video-wrapper {
+    width: 100%;
+    height: 100%;
+    max-width: 1280px;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Placeholder for the actual video */
+.video-placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background-image: url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=2576&auto=format&fit=crop');
+    /* Professional woman portrait */
+    background-size: cover;
+    background-position: center;
+}
+
+/* Floating Controls */
+.control-bar {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    /* Center items vertically */
+    gap: 16px;
+    padding: 12px 24px;
+    background: rgba(20, 20, 20, 0.85);
+    /* Slightly darker/more opaque */
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Finer border */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* Deeper shadow */
+    z-index: 10;
+}
+
+/* Vocalizer */
+.vocalizer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 24px;
+    min-width: 24px;
+}
+
+.vocalizer-bar {
+    width: 3px;
+    height: 10px;
+    background-color: var(--text-color);
+    border-radius: 2px;
+    animation: pulse 1s infinite ease-in-out;
+}
+
+.vocalizer-bar:nth-child(1) {
+    animation-delay: 0.0s;
+    height: 12px;
+}
+
+.vocalizer-bar:nth-child(2) {
+    animation-delay: 0.1s;
+    height: 18px;
+}
+
+.vocalizer-bar:nth-child(3) {
+    animation-delay: 0.2s;
+    height: 16px;
+}
+
+.vocalizer-bar:nth-child(4) {
+    animation-delay: 0.3s;
+    height: 14px;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.5;
+        transform: scaleY(0.8);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scaleY(1.2);
+    }
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background-color: rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
+}
+
+.btn-control {
+    width: 48px;
+    /* Slightly larger targets */
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-control:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+.btn-control.active {
+    background-color: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 12px rgba(30, 215, 96, 0.4);
+}
+
+.btn-end {
+    background-color: var(--danger-color);
+    /* Removed width:auto and padding to make it circular like others */
+}
+
+.btn-end:hover {
+    background-color: #ff2222;
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.4);
+}
+
+/* Chat Sidebar */
+.chat-sidebar {
+    width: 350px;
+    background-color: var(--sidebar-bg);
+    border-left: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-bottom: 1px solid #222;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 85%;
+}
+
+.message.agent {
+    align-self: flex-start;
+}
+
+.message.user {
+    align-self: flex-end;
+}
+
+.msg-bubble {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.agent .msg-bubble {
+    background-color: #2a2a2a;
+    border-top-left-radius: 4px;
+    color: #eee;
+}
+
+.user .msg-bubble {
+    background-color: rgba(30, 215, 96, 0.2);
+    border: 1px solid rgba(30, 215, 96, 0.3);
+    border-top-right-radius: 4px;
+    color: #fff;
+}
+
+.msg-info {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.chat-input-area {
+    padding: 20px;
+    border-top: 1px solid #222;
+    background-color: var(--sidebar-bg);
+}
+
+.input-wrapper {
+    display: flex;
+    background-color: #2a2a2a;
+    border-radius: 24px;
+    padding: 4px;
+    align-items: center;
+}
+
+.chat-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 12px 16px;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+}
+
+.btn-send {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: color 0.2s;
+}
+
+.btn-send:hover {
+    color: var(--accent-color);
+}
+
+/* Icons */
+svg {
+    width: 20px;
+    height: 20px;
+}
